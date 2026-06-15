@@ -1,0 +1,98 @@
+appId: com.void.app
+productName: Void
+executableName: void
+copyright: Copyright © 2024 Desmond Dike-Ibeh
+
+directories:
+  buildResources: build
+  output: release/${version}
+
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}'
+  - '!node_modules/*/{test,__tests__,tests,powered-test,example,examples}'
+  - '!node_modules/*.d.ts'
+  - '!node_modules/.bin'
+  - '!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}'
+  - '!.editorconfig'
+  - '!**/._*'
+  - '!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}'
+  - '!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}'
+  - '!**/{appveyor.yml,.travis.yml,circle.yml}'
+  - '!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}'
+
+asarUnpack:
+  - resources/**
+
+win:
+  icon: resources/void.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-Setup-${version}.${ext}
+  executableName: void
+  fileAssociations:
+    - ext:
+        - mp3
+        - flac
+        - wav
+        - ogg
+        - m4a
+      name: Audio File
+      role: Viewer
+
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  allowElevation: true
+  deleteAppDataOnUninstall: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: ${productName}
+  installerIcon: resources/void.ico
+  uninstallerIcon: resources/void.ico
+  installerHeader: resources/void.ico
+  installerHeaderIcon: resources/void.ico
+  displayLanguageSelector: false
+  runAfterFinish: true
+  include: build/installer.nsh
+  uninstallDisplayName: ${productName}
+
+linux:
+  icon: resources/void.png
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  category: Audio
+  fileAssociations:
+    - ext:
+        - mp3
+        - flac
+        - wav
+        - ogg
+        - m4a
+      name: Audio File
+      mimeType: audio/mpeg
+
+appImage:
+  artifactName: ${name}-${version}.${ext}
+
+npmRebuild: false
+
+publish:
+  provider: generic
+  url: https://example.com/auto-updates
+
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/
