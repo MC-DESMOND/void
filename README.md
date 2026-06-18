@@ -1,34 +1,13 @@
-# void
+# Void
 
-An Electron application with React and TypeScript
+Void is a modern music player for Windows with a sleek, beat-driven interface.
 
-## Recommended IDE Setup
+Features:
+- Beat visualizers that ripple like water
+- App body motion synced with the beat
+- Bottom audio visualizer for a polished look
+- Customizable theme support
+- Installs automatically to the system PATH for easy access
 
-- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
+Void is built for users who want a contemporary, visually dynamic music player experience on Windows.
 
-## Project Setup
-
-### Install
-
-```bash
-$ npm install
-```
-
-### Development
-
-```bash
-$ npm run dev
-```
-
-### Build
-
-```bash
-# For windows
-$ npm run build:win
-
-# For macOS
-$ npm run build:mac
-
-# For Linux
-$ npm run build:linux
-```
