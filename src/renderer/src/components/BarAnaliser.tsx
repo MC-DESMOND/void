@@ -10,7 +10,7 @@ export class BarAnalyser {
   private bassAvg    = 1;
   private highestAvg = 1;
   private barsAvg: number[] | null = null;
-  private lb2 = 0;
+  // private lb2 = 0;
   // beat detection
   private lastBass     = 0;
   private slowBassAvg  = 1;
@@ -69,7 +69,7 @@ export class BarAnalyser {
     // beat detection
     this.slowBassAvg  = this.slowBassAvg * 0.9783 + bass * 0.02;
     const delta       = bass - this.lastBass;
-    this.lb2 = this.lastBass;
+    // this.lb2 = this.lastBass;
     this.lastBass     = bass;
     this.beatCooldown = Math.max(0, this.beatCooldown - 1);
 
