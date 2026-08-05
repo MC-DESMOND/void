@@ -71,7 +71,7 @@ function App(): React.JSX.Element {
     // const audioCtx = new AudioContext();
     const audioElement = document.getElementById("audio") as HTMLAudioElement;
     // const controller = new AudioController(audioElement);
-    const watcher = new AudioOutputWatcher(() => {
+    new AudioOutputWatcher(() => {
       audioElement.pause();
     });
     const audioCtx = new AudioContext();
