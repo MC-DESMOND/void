@@ -10,12 +10,12 @@ export class BarAnalyser {
   private bassAvg    = 1;
   private highestAvg = 1;
   private barsAvg: number[] | null = null;
-
+  private lb2 = 0;
   // beat detection
   private lastBass     = 0;
   private slowBassAvg  = 1;
   private beatCooldown = 0;
-  private beatSensitivity = 1.1;
+  private beatSensitivity = 1.7;
   private name = ""
   constructor(audioCtx: AudioContext, source: AudioNode,name="analyser") {
     this.motion = new AudioMotionAnalyzer(undefined, {
@@ -67,8 +67,9 @@ export class BarAnalyser {
     const normalizedBars    = bars255.map((v, i) => normalize(v, this.barsAvg![i]));
 
     // beat detection
-    this.slowBassAvg  = this.slowBassAvg * 0.98 + bass * 0.02;
+    this.slowBassAvg  = this.slowBassAvg * 0.9783 + bass * 0.02;
     const delta       = bass - this.lastBass;
+    this.lb2 = this.lastBass;
     this.lastBass     = bass;
     this.beatCooldown = Math.max(0, this.beatCooldown - 1);
 

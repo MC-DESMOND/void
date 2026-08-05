@@ -9,7 +9,7 @@ import Bars from "./components/Bars";
 import FallingShapes from "./components/anishapes";
 import Sub from "./components/sub";
 import { FaRegFolderOpen } from "react-icons/fa6";
-
+import { AudioOutputWatcher } from "./components/AudioOutputWatcher";
 
 async function loadFile(filePath: string) {
   const audioElement = document.getElementById("audio") as HTMLAudioElement;
@@ -71,7 +71,9 @@ function App(): React.JSX.Element {
     // const audioCtx = new AudioContext();
     const audioElement = document.getElementById("audio") as HTMLAudioElement;
     // const controller = new AudioController(audioElement);
-
+    const watcher = new AudioOutputWatcher(() => {
+      audioElement.pause();
+    });
     const audioCtx = new AudioContext();
     const source = audioCtx.createMediaElementSource(audioElement);
     const analyser = new BarAnalyser(audioCtx, source);

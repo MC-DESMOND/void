@@ -7,7 +7,7 @@ const BEAT_SENSITIVITY = 1.15;  // how much above average to trigger
 const RIPPLE_FADE      = 0.003; // fade speed per frame
 const RIPPLE_MAX_OP    = 0.6;  // max ripple opacity
 // const RIPPLE_CAP       = 18;    // max simultaneous ripples
-const SCALE_BOOST      = 0.05; // app scale pulse amount
+const SCALE_BOOST      = 0.2; // app scale pulse amount
 const CIRCLE_SCALE_BOOST = 0.1; // app scale pulse amount
 const ROTATION_BOOST   = 6;    // max rotation speed multiplier
 // ────────────────────────────────────────────────────────────
