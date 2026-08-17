@@ -136,6 +136,7 @@
 .main {
   width: 100%;
   height: 100%;
+  /* background:radial-gradient( circle, rgba(0, 0, 0, 0.118), rgba(0, 0, 0, 0.797)); */
 }
 .title {
   display: flex;
@@ -290,11 +291,12 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  width: 100%;
+  width: 100vw;
   height: 100%;
   max-width: 500px;
-  padding: 0 16px;
+  padding: 10px 16px;
   box-sizing: border-box;
+  /* background: linear-gradient(to left , transparent, black, transparent); */
 }
 
 .seek-bar {
