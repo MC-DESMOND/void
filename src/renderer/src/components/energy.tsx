@@ -61,8 +61,16 @@ import {
  * ------------------------------------------------------------------
  */
 
-/** Shader-side ripple slot count. Must match MAX_RIPPLES in the GLSL below. */
-const MAX_RIPPLES = 8;
+/**
+ * Shader-side ripple slot count. Must match MAX_RIPPLES in the GLSL below.
+ *
+ * Raising this is close to free: the shader loop skips empty slots with an
+ * early `continue`, so unused capacity costs almost nothing per fragment. The
+ * number that matters is rippleDuration / beatInterval - a ripple holds a slot
+ * only until it expires, so with enough slots nothing is ever evicted mid
+ * flight and every beat can have its own wave.
+ */
+const MAX_RIPPLES = 16;
 
 const VERTEX_SRC = `
 attribute vec2 aPosition;
@@ -74,7 +82,7 @@ void main() {
 const FRAGMENT_SRC = `
 precision highp float;
 
-#define MAX_RIPPLES 8
+#define MAX_RIPPLES 16
 
 uniform vec2  uResolution;
 uniform float uTime;
@@ -698,7 +706,12 @@ export interface EnergyBackgroundProps {
   rippleEnergy?: number;
   /** Lifetime of a ripple in seconds. */
   rippleDuration?: number;
-  /** Max simultaneous ripples, 1..8. Oldest is recycled when exceeded. */
+  /**
+   * Max simultaneous ripples, 1..16. The oldest is recycled when exceeded,
+   * which looks like a wave vanishing mid flight - so this wants to be at
+   * least `rippleDuration` / shortest expected gap between ripples. At 2.4s
+   * duration, 12 slots covers a ripple every 200ms (300 BPM).
+   */
   maxRipples?: number;
 
   /** Additive blending - bright areas accumulate into glow. */
@@ -753,7 +766,7 @@ const EnergyBackground = forwardRef<
     rippleStrength = 0.35,
     rippleEnergy = 0.35,
     rippleDuration = 2.4,
-    maxRipples = 5,
+    maxRipples = 12,
 
     additive = true,
     pixelRatioCap = 1.25,

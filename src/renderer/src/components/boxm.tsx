@@ -7,46 +7,63 @@ import type { EnergyBackgroundHandle } from "./energy";
 /**
  * Beat-reactive visuals.
  *
- * The old version drew ripples itself: it kept an array of {radius, opacity},
- * advanced them on a requestAnimationFrame loop, and rebuilt a stacked
- * `radial-gradient(...)` background string on `.boxes-glow` every single frame.
- * That is a per-frame string concat plus a full style recalc and repaint of a
- * viewport-sized element, on the main thread, competing with the audio
- * analyser.
+ * WHAT THIS NO LONGER DOES
  *
- * EnergyBackground now does the same thing on the GPU, so all of that is gone.
- * This module's job is reduced to deciding WHEN and WHERE a ripple happens and
- * calling `energy.ripple(x, y)`.
+ * 1. It does not draw ripples. It used to keep an array of {radius, opacity},
+ *    advance them on a rAF loop, and rebuild a stacked `radial-gradient(...)`
+ *    string on `.boxes-glow` every frame - a per-frame string concat plus a
+ *    full style recalc and repaint of a viewport-sized element, on the main
+ *    thread, competing with the audio analyser. EnergyBackground does it on
+ *    the GPU now.
+ *
+ * 2. It does not set a beat SENSITIVITY. The analyser calibrates its own
+ *    onset threshold from the running median and MAD of spectral flux, and
+ *    then filters onsets through a phase-locked tempo grid. Feeding it a
+ *    magic multiplier had no measurable effect on which beats came out.
+ *
+ * 3. It does not rate-limit ripples. See DOUBLE_FIRE_GUARD_MS below.
+ *
+ * 4. It does not apply a beat FLOOR. That gate existed because the old
+ *    detector emitted a lot of junk during quiet passages and the strength
+ *    value was the only way to sift it. Beats now arrive on a tracked grid,
+ *    so a quiet beat is still a beat - dropping it just punched holes in the
+ *    rhythm. Strength still modulates how the ripple LOOKS, it just no longer
+ *    decides whether one happens.
+ *
+ * All this module does now is decide WHERE a ripple goes and call
+ * `energy.ripple(x, y)`.
  * ------------------------------------------------------------------ */
-
-// ── tune these ───────────────────────────────────────────────
-const BEAT_SENSITIVITY = 1;   // how much above average counts as a beat
-
-/** Ignore beats weaker than this (0..1). Stops quiet passages from
- *  machine-gunning ripples that are too faint to see anyway. */
-const BEAT_FLOOR = 0.18;
-
-/** Minimum ms between ripples. The shader holds a limited number of slots
- *  (maxRipples), so firing on every single beat just recycles them before
- *  they've visibly expanded - you get flicker instead of waves. */
-const MIN_RIPPLE_INTERVAL = 110;
-
-/** Above this intensity, fire a second offset ripple so big hits read as
- *  bigger rather than just identical. */
-// const DOUBLE_RIPPLE_AT = 0.72;
 
 /** Random spread (in % of the element) applied to each ripple origin, so
  *  repeated beats don't stack perfectly on top of each other. */
 const ORIGIN_JITTER = 7;
 
-/** Element whose centre ripples emanate from. Falls back to screen centre. */
+/** Element ripples emanate from. Falls back to the centre of the backdrop. */
 const ORIGIN_SELECTOR = ".song-circle";
 
-// const SCALE_BOOST = 0.02;         // app scale pulse amount
-// const SCALE_HOLD = 100;          // ms before the pulse relaxes
-const CIRCLE_SCALE_BOOST = 0.1;  // idle circle breathing amount
-const ROTATION_BOOST = 6;        // max rotation speed multiplier
-// ────────────────────────────────────────────────────────────
+/**
+ * EVERY beat gets a ripple. There is no rate limit any more.
+ *
+ * There used to be one, derived from the shader's ripple capacity: with 5
+ * slots over a 2.4s lifetime a ripple could only start every 480ms, so faster
+ * beats were dropped. That threw away real beats - at 140 BPM (428ms apart)
+ * it silently skipped every other one.
+ *
+ * The fix belongs on the capacity side, not here. A ripple only holds a slot
+ * until it expires, so as long as `rippleDuration / beatInterval` is under the
+ * slot count nothing is ever evicted mid flight. EnergyBackground now defaults
+ * to 16 slots, which at a 2.4s duration covers a beat every 150ms (400 BPM) -
+ * comfortably past anything musical.
+ *
+ * The only guard left is against a pathological double-fire in the same
+ * animation frame, which is a bug shield rather than a musical decision.
+ */
+const DOUBLE_FIRE_GUARD_MS = 40;
+
+/** Idle circle breathing amount, driven by the running average. */
+const CIRCLE_SCALE_BOOST = 0.1;
+/** Max rotation speed multiplier on a beat. */
+const ROTATION_BOOST = 6;
 
 type Unsub = (() => void) | void;
 
@@ -82,7 +99,7 @@ export function initCirclePulse(): () => void {
   subscribe(
     "analyser.beat",
     ({ strength }: { strength: number }) => {
-      const intensity = strength / 255;
+      const intensity = Math.min(Math.max(strength / 255, 0), 1);
 
       circle.style.scale = `${1 + intensity * 0.3}`;
       timers.push(
@@ -134,10 +151,6 @@ export default function boxesManipulator(
   energyRef?: RefObject<EnergyBackgroundHandle | null>
 ): () => void {
   const subs: Unsub[] = [];
-  const timers: number[] = [];
-
-  // tell BarAnalyser how twitchy to be
-  endlnr.emit("analyser.sensitivity", { value: BEAT_SENSITIVITY });
 
   let lastRippleAt = 0;
 
@@ -145,10 +158,9 @@ export default function boxesManipulator(
    * Where a ripple should originate, as percentages of the backdrop element.
    *
    * EnergyBackground resolves "x%" against its own width and "y%" against its
-   * own height, and it's absolutely positioned to fill #app - so percentages
+   * own height, and it is absolutely positioned to fill #app - so percentages
    * are computed against #app's box, not the viewport. Those are usually the
-   * same thing here, but not if #app is ever inset or scaled (and it IS
-   * scaled, by the beat pulse below).
+   * same, but not if #app is ever inset or scaled.
    */
   function originPercent(): { x: number; y: number } {
     const host = document.getElementById("app");
@@ -183,49 +195,19 @@ export default function boxesManipulator(
     return v + (Math.random() - 0.5) * 2 * ORIGIN_JITTER;
   }
 
-  function fireRipple(_intensity: number): void {
-    const energy = energyRef?.current;
-    if (!energy) return;
-
-    const now = performance.now();
-    if (now - lastRippleAt < MIN_RIPPLE_INTERVAL) return;
-    lastRippleAt = now;
-
-    const { x, y } = originPercent();
-    energy.ripple(`${jitter(x)}%`, `${jitter(y)}%`);
-
-    // big hits get a second, wider-offset wave so they feel heavier
-    /* if (intensity >= DOUBLE_RIPPLE_AT) {
-      const spread = ORIGIN_JITTER * 2.5;
-      energy.ripple(
-        `${x + (Math.random() - 0.5) * 2 * spread}%`,
-        `${y + (Math.random() - 0.5) * 2 * spread}%`
-      );
-    } */
-  }
-
-  // ── beat: ripple + app pulse ──────────────────────────────
-  let pulseTimer = 0;
-
+  // ── beat -> ripple ────────────────────────────────────────
   subscribe(
     "analyser.beat",
-    ({ strength }: { strength: number }) => {
-      const intensity = Math.min(Math.max(strength / 255, 0), 1);
-      if (intensity < BEAT_FLOOR) return;
+    () => {
+      const energy = energyRef?.current;
+      if (!energy) return;
 
-      fireRipple(intensity);
+      const now = performance.now();
+      if (now - lastRippleAt < DOUBLE_FIRE_GUARD_MS) return;
+      lastRippleAt = now;
 
-      /* const app = document.getElementById("app");
-      if (app) {
-        window.clearTimeout(pulseTimer);
-        app.style.scale = `${1 + intensity * SCALE_BOOST}`;
-        // one shared timer instead of a new setTimeout per beat: rapid beats
-        // used to queue overlapping timeouts that reset the scale mid-pulse
-        pulseTimer = window.setTimeout(() => {
-          app.style.scale = "1";
-        }, SCALE_HOLD);
-        timers.push(pulseTimer);
-      } */
+      const { x, y } = originPercent();
+      energy.ripple(`${jitter(x)}%`, `${jitter(y)}%`);
     },
     subs
   );
@@ -234,9 +216,6 @@ export default function boxesManipulator(
   subscribe(
     "analyser.average.norm",
     ({ average }: { average: number }) => {
-      // The old version declared `let circle: any` and never assigned it, so
-      // the `if (circle)` below was permanently false and this handler did
-      // nothing at all. Actually querying the element makes it work.
       const circle = document.querySelector<HTMLElement>(ORIGIN_SELECTOR);
       if (!circle) return;
 
@@ -248,9 +227,6 @@ export default function boxesManipulator(
 
   return () => {
     disposeAll(subs);
-    timers.forEach((t) => window.clearTimeout(t));
-    window.clearTimeout(pulseTimer);
-
     const app = document.getElementById("app");
     if (app) app.style.scale = "1";
   };
